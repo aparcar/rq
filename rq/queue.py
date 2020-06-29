@@ -5,8 +5,9 @@ from __future__ import (absolute_import, division, print_function,
 import uuid
 import warnings
 from datetime import datetime
+from distutils.version import StrictVersion
 
-from redis import WatchError
+from redis import WatchError, __version__ as redis_py_version
 
 from .compat import as_text, string_types, total_ordering, utc
 from .connections import resolve_connection
@@ -57,6 +58,8 @@ class Queue(object):
     def __init__(self, name='default', default_timeout=None, connection=None,
                  is_async=True, job_class=None, serializer=None, **kwargs):
         self.connection = resolve_connection(connection)
+        self.redis_server_version = StrictVersion(self.connection.info()["redis_py_version"])
+        self.redis_py_version = StrictVersion(redis_py_version)
         prefix = self.redis_queue_namespace_prefix
         self.name = name
         self._key = '{0}{1}'.format(prefix, name)

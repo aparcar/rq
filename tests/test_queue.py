@@ -5,6 +5,7 @@ from __future__ import (absolute_import, division, print_function,
 import json
 from datetime import datetime, timedelta
 from mock.mock import patch
+from distutils.version import StrictVersion
 
 from rq import Queue
 from rq.compat import utc
@@ -44,6 +45,20 @@ class TestQueue(RQTestCase):
         q = Queue('my-queue')
         self.assertEqual(q.name, 'my-queue')
         self.assertEqual(str(q), '<Queue my-queue>')
+
+    def test_redis_version(self):
+        """Creating queue and test redis_py_version."""
+        q = Queue('my-queue')
+
+        # minimal requirement for rq
+        self.assertGreater(q.redis_py_version, StrictVersion('3.0.0'))
+        self.assertLess(q.redis_py_version, StrictVersion('1000.0.0'))
+
+        # minimal requirement for rq
+        self.assertGreater(q.redis_server_version, StrictVersion('4.0.0'))
+
+        # the Redis development version is 999.999.999
+        self.assertLess(q.redis_server_version, StrictVersion('1000.0.0'))
 
     def test_create_queue_with_serializer(self):
         """Creating queues with serializer."""
