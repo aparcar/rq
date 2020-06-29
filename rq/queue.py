@@ -159,15 +159,20 @@ class Queue(object):
     def get_job_position(self, job_or_id):
         """Returns the position of a job within the queue
 
-        WARNING: The current implementation has a complexity of worse than O(N)
-        and should not be used for very long job queues. Future implementation
-        may use Redis LPOS command to improve the complexity to O(N) and
-        running natively in Redis C implementation.
+        Using Redis before 6.0.6 and redis-py before 3.5.4 has a complexity of
+        worse than O(N) and should not be used for very long job queues. Redis
+        and redis-py version afterwards should support the LPOS command
+        handling job positions within Redis c implementation.
         """
         job_id = job_or_id.id if isinstance(job_or_id, self.job_class) else job_or_id
-        if job_id in self.job_ids:
-            return self.job_ids.index(job_id)
-        return None
+
+        if (self.redis_server_version >= StrictVersion("6.0.6") and
+                self.redis_py_version >= StrictVersion("3.5.4")):
+            return self.connection.lpos(self.key, job_id)
+        else:
+            if job_id in self.job_ids:
+                return self.job_ids.index(job_id)
+            return None
 
     def get_job_ids(self, offset=0, length=-1):
         """Returns a slice of job IDs in the queue."""
