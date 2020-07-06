@@ -5,7 +5,7 @@ easily.
 
 RQ requires Redis >= 3.0.0.
 
-[![Build status](https://travis-ci.org/rq/rq.svg?branch=master)](https://secure.travis-ci.org/rq/rq)
+![Build status](https://github.com/rq/rq/workflows/Test%20rq/badge.svg)
 [![PyPI](https://img.shields.io/pypi/pyversions/rq.svg)](https://pypi.python.org/pypi/rq)
 [![Coverage](https://codecov.io/gh/rq/rq/branch/master/graph/badge.svg)](https://codecov.io/gh/rq/rq)
 
@@ -83,6 +83,17 @@ Simply use the following command to install the latest released version:
 If you want the cutting edge version (that may well be broken), use this:
 
     pip install -e git+https://github.com/nvie/rq.git@master#egg=rq
+
+
+## Related Projects
+
+Check out these below repos which might be useful in your rq based project.
+
+- [rq-dashboard](https://github.com/Parallels/rq-dashboard)
+- [rqmonitor](https://github.com/pranavgupta1234/rqmonitor)
+- [django-rq](https://github.com/rq/django-rq)
+- [Flask-RQ2](https://github.com/rq/Flask-RQ2)
+- [rq-scheduler](https://github.com/rq/rq-scheduler)
 
 
 ## Project history
