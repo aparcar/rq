@@ -8,6 +8,7 @@ RQ requires Redis >= 3.0.0.
 ![Build status](https://github.com/rq/rq/workflows/Test%20rq/badge.svg)
 [![PyPI](https://img.shields.io/pypi/pyversions/rq.svg)](https://pypi.python.org/pypi/rq)
 [![Coverage](https://codecov.io/gh/rq/rq/branch/master/graph/badge.svg)](https://codecov.io/gh/rq/rq)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 Full documentation can be found [here][d].
 
