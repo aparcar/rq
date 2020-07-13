@@ -22,10 +22,10 @@ def resolve_serializer(serializer):
     if isinstance(serializer, string_types):
         serializer = import_attribute(serializer)
 
-    default_serializer_methods = ('dumps', 'loads')
+    default_serializer_methods = ("dumps", "loads")
 
     for instance_method in default_serializer_methods:
         if not hasattr(serializer, instance_method):
-            raise NotImplementedError('Serializer should have (dumps, loads) methods.')
+            raise NotImplementedError("Serializer should have (dumps, loads) methods.")
 
     return serializer

@@ -1,16 +1,18 @@
 # -*- coding: utf-8 -*-
-from __future__ import (absolute_import, division, print_function,
-                        unicode_literals)
+from __future__ import absolute_import, division, print_function, unicode_literals
 
 import logging
 
 from rq.utils import ColorizingStreamHandler
-from rq.defaults import (DEFAULT_LOGGING_FORMAT,
-                         DEFAULT_LOGGING_DATE_FORMAT)
+from rq.defaults import DEFAULT_LOGGING_FORMAT, DEFAULT_LOGGING_DATE_FORMAT
 
 
-def setup_loghandlers(level=None, date_format=DEFAULT_LOGGING_DATE_FORMAT,
-                      log_format=DEFAULT_LOGGING_FORMAT, name='rq.worker'):
+def setup_loghandlers(
+    level=None,
+    date_format=DEFAULT_LOGGING_DATE_FORMAT,
+    log_format=DEFAULT_LOGGING_FORMAT,
+    name="rq.worker",
+):
     logger = logging.getLogger(name)
 
     if not _has_effective_handler(logger):

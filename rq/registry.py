@@ -17,11 +17,11 @@ class BaseRegistry(object):
     Each job is stored as a key in the registry, scored by expiration time
     (unix timestamp).
     """
-    job_class = Job
-    key_template = 'rq:registry:{0}'
 
-    def __init__(self, name='default', connection=None, job_class=None,
-                 queue=None):
+    job_class = Job
+    key_template = "rq:registry:{0}"
+
+    def __init__(self, name="default", connection=None, job_class=None, queue=None):
         if queue:
             self.name = queue.name
             self.connection = resolve_connection(queue.connection)
@@ -30,7 +30,7 @@ class BaseRegistry(object):
             self.connection = resolve_connection(connection)
 
         self.key = self.key_template.format(self.name)
-        self.job_class = backend_class(self, 'job_class', override=job_class)
+        self.job_class = backend_class(self, "job_class", override=job_class)
 
     def __len__(self):
         """Returns the number of jobs in this registry"""
@@ -38,8 +38,9 @@ class BaseRegistry(object):
 
     def __eq__(self, other):
         return (
-            self.name == other.name and
-            self.connection.connection_pool.connection_kwargs == other.connection.connection_pool.connection_kwargs
+            self.name == other.name
+            and self.connection.connection_pool.connection_kwargs
+            == other.connection.connection_pool.connection_kwargs
         )
 
     def __contains__(self, item):
@@ -62,7 +63,7 @@ class BaseRegistry(object):
         """Adds a job to a registry with expiry time of now + ttl, unless it's -1 which is set to +inf"""
         score = ttl if ttl < 0 else current_timestamp() + ttl
         if score == -1:
-            score = '+inf'
+            score = "+inf"
         if pipeline is not None:
             return pipeline.zadd(self.key, {job.id: score})
 
@@ -89,14 +90,17 @@ class BaseRegistry(object):
         time if unspecified.
         """
         score = timestamp if timestamp is not None else current_timestamp()
-        return [as_text(job_id) for job_id in
-                self.connection.zrangebyscore(self.key, 0, score)]
+        return [
+            as_text(job_id)
+            for job_id in self.connection.zrangebyscore(self.key, 0, score)
+        ]
 
     def get_job_ids(self, start=0, end=-1):
         """Returns list of all job ids."""
         self.cleanup()
-        return [as_text(job_id) for job_id in
-                self.connection.zrange(self.key, start, end)]
+        return [
+            as_text(job_id) for job_id in self.connection.zrange(self.key, start, end)
+        ]
 
     def get_queue(self):
         """Returns Queue object associated with this registry."""
@@ -117,7 +121,8 @@ class StartedJobRegistry(BaseRegistry):
     Jobs are added to registry right before they are executed and removed
     right after completion (success or failure).
     """
-    key_template = 'rq:wip:{0}'
+
+    key_template = "rq:wip:{0}"
 
     def cleanup(self, timestamp=None):
         """Remove expired jobs from registry and add them to FailedJobRegistry.
@@ -135,10 +140,11 @@ class StartedJobRegistry(BaseRegistry):
             with self.connection.pipeline() as pipeline:
                 for job_id in job_ids:
                     try:
-                        job = self.job_class.fetch(job_id,
-                                                   connection=self.connection)
+                        job = self.job_class.fetch(job_id, connection=self.connection)
                         job.set_status(JobStatus.FAILED)
-                        job.exc_info = "Moved to FailedJobRegistry at %s" % datetime.now()
+                        job.exc_info = (
+                            "Moved to FailedJobRegistry at %s" % datetime.now()
+                        )
                         job.save(pipeline=pipeline, include_meta=False)
                         job.cleanup(ttl=-1, pipeline=pipeline)
                         failed_job_registry.add(job, job.failure_ttl)
@@ -156,7 +162,8 @@ class FinishedJobRegistry(BaseRegistry):
     Registry of jobs that have been completed. Jobs are added to this
     registry after they have successfully completed for monitoring purposes.
     """
-    key_template = 'rq:finished:{0}'
+
+    key_template = "rq:finished:{0}"
 
     def cleanup(self, timestamp=None):
         """Remove expired jobs from registry.
@@ -173,7 +180,8 @@ class FailedJobRegistry(BaseRegistry):
     """
     Registry of containing failed jobs.
     """
-    key_template = 'rq:failed:{0}'
+
+    key_template = "rq:failed:{0}"
 
     def cleanup(self, timestamp=None):
         """Remove expired jobs from registry.
@@ -185,7 +193,7 @@ class FailedJobRegistry(BaseRegistry):
         score = timestamp if timestamp is not None else current_timestamp()
         self.connection.zremrangebyscore(self.key, 0, score)
 
-    def add(self, job, ttl=None, exc_string='', pipeline=None):
+    def add(self, job, ttl=None, exc_string="", pipeline=None):
         """
         Adds a job to a registry with expiry time of now + ttl.
         `ttl` defaults to DEFAULT_FAILURE_TTL if not specified.
@@ -219,8 +227,9 @@ class FailedJobRegistry(BaseRegistry):
             raise InvalidJobOperation
 
         with self.connection.pipeline() as pipeline:
-            queue = Queue(job.origin, connection=self.connection,
-                          job_class=self.job_class)
+            queue = Queue(
+                job.origin, connection=self.connection, job_class=self.job_class
+            )
             job.started_at = None
             job.ended_at = None
             job.save()
@@ -233,7 +242,8 @@ class DeferredJobRegistry(BaseRegistry):
     """
     Registry of deferred jobs (waiting for another job to finish).
     """
-    key_template = 'rq:deferred:{0}'
+
+    key_template = "rq:deferred:{0}"
 
     def cleanup(self):
         """This method is only here to prevent errors because this method is
@@ -246,7 +256,8 @@ class ScheduledJobRegistry(BaseRegistry):
     """
     Registry of scheduled jobs.
     """
-    key_template = 'rq:scheduled:{0}'
+
+    key_template = "rq:scheduled:{0}"
 
     def __init__(self, *args, **kwargs):
         super(ScheduledJobRegistry, self).__init__(*args, **kwargs)
@@ -267,8 +278,12 @@ class ScheduledJobRegistry(BaseRegistry):
             try:
                 from datetime import timezone
             except ImportError:
-                raise ValueError('datetime object with no timezone')
-            tz = timezone(timedelta(seconds=-(time.timezone if time.daylight == 0 else time.altzone)))
+                raise ValueError("datetime object with no timezone")
+            tz = timezone(
+                timedelta(
+                    seconds=-(time.timezone if time.daylight == 0 else time.altzone)
+                )
+            )
             scheduled_datetime = scheduled_datetime.replace(tzinfo=tz)
 
         timestamp = calendar.timegm(scheduled_datetime.utctimetuple())
@@ -289,8 +304,10 @@ class ScheduledJobRegistry(BaseRegistry):
     def get_jobs_to_schedule(self, timestamp=None):
         """Remove jobs whose timestamp is in the past from registry."""
         score = timestamp if timestamp is not None else current_timestamp()
-        return [as_text(job_id) for job_id in
-                self.connection.zrangebyscore(self.key, 0, score)]
+        return [
+            as_text(job_id)
+            for job_id in self.connection.zrangebyscore(self.key, 0, score)
+        ]
 
     def get_scheduled_time(self, job_or_id):
         """Returns datetime (UTC) at which job is scheduled to be enqueued"""
@@ -308,16 +325,16 @@ class ScheduledJobRegistry(BaseRegistry):
 
 def clean_registries(queue):
     """Cleans StartedJobRegistry, FinishedJobRegistry and FailedJobRegistry of a queue."""
-    registry = FinishedJobRegistry(name=queue.name,
-                                   connection=queue.connection,
-                                   job_class=queue.job_class)
+    registry = FinishedJobRegistry(
+        name=queue.name, connection=queue.connection, job_class=queue.job_class
+    )
     registry.cleanup()
-    registry = StartedJobRegistry(name=queue.name,
-                                  connection=queue.connection,
-                                  job_class=queue.job_class)
+    registry = StartedJobRegistry(
+        name=queue.name, connection=queue.connection, job_class=queue.job_class
+    )
     registry.cleanup()
 
-    registry = FailedJobRegistry(name=queue.name,
-                                 connection=queue.connection,
-                                 job_class=queue.job_class)
+    registry = FailedJobRegistry(
+        name=queue.name, connection=queue.connection, job_class=queue.job_class
+    )
     registry.cleanup()

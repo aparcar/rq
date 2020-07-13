@@ -1,4 +1,4 @@
-WORKERS_SUSPENDED = 'rq:suspended'
+WORKERS_SUSPENDED = "rq:suspended"
 
 
 def is_suspended(connection, worker=None):

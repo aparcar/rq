@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-from __future__ import (absolute_import, division, print_function,
-                        unicode_literals)
+from __future__ import absolute_import, division, print_function, unicode_literals
 
 import uuid
 import warnings
@@ -26,8 +25,8 @@ def compact(lst):
 class Queue(object):
     job_class = Job
     DEFAULT_TIMEOUT = 180  # Default timeout seconds.
-    redis_queue_namespace_prefix = 'rq:queue:'
-    redis_queues_keys = 'rq:queues'
+    redis_queue_namespace_prefix = "rq:queue:"
+    redis_queues_keys = "rq:queues"
 
     @classmethod
     def all(cls, connection=None, job_class=None, serializer=None):
@@ -36,37 +35,58 @@ class Queue(object):
         connection = resolve_connection(connection)
 
         def to_queue(queue_key):
-            return cls.from_queue_key(as_text(queue_key),
-                                      connection=connection,
-                                      job_class=job_class, serializer=serializer)
-        return [to_queue(rq_key)
-                for rq_key in connection.smembers(cls.redis_queues_keys)
-                if rq_key]
+            return cls.from_queue_key(
+                as_text(queue_key),
+                connection=connection,
+                job_class=job_class,
+                serializer=serializer,
+            )
+
+        return [
+            to_queue(rq_key)
+            for rq_key in connection.smembers(cls.redis_queues_keys)
+            if rq_key
+        ]
 
     @classmethod
-    def from_queue_key(cls, queue_key, connection=None, job_class=None, serializer=None):
+    def from_queue_key(
+        cls, queue_key, connection=None, job_class=None, serializer=None
+    ):
         """Returns a Queue instance, based on the naming conventions for naming
         the internal Redis keys.  Can be used to reverse-lookup Queues by their
         Redis keys.
         """
         prefix = cls.redis_queue_namespace_prefix
         if not queue_key.startswith(prefix):
-            raise ValueError('Not a valid RQ queue key: {0}'.format(queue_key))
-        name = queue_key[len(prefix):]
-        return cls(name, connection=connection, job_class=job_class, serializer=serializer)
+            raise ValueError("Not a valid RQ queue key: {0}".format(queue_key))
+        name = queue_key[len(prefix) :]
+        return cls(
+            name, connection=connection, job_class=job_class, serializer=serializer
+        )
 
-    def __init__(self, name='default', default_timeout=None, connection=None,
-                 is_async=True, job_class=None, serializer=None, **kwargs):
+    def __init__(
+        self,
+        name="default",
+        default_timeout=None,
+        connection=None,
+        is_async=True,
+        job_class=None,
+        serializer=None,
+        **kwargs
+    ):
         self.connection = resolve_connection(connection)
         prefix = self.redis_queue_namespace_prefix
         self.name = name
-        self._key = '{0}{1}'.format(prefix, name)
+        self._key = "{0}{1}".format(prefix, name)
         self._default_timeout = parse_timeout(default_timeout) or self.DEFAULT_TIMEOUT
         self._is_async = is_async
 
-        if 'async' in kwargs:
-            self._is_async = kwargs['async']
-            warnings.warn('The `async` keyword is deprecated. Use `is_async` instead', DeprecationWarning)
+        if "async" in kwargs:
+            self._is_async = kwargs["async"]
+            warnings.warn(
+                "The `async` keyword is deprecated. Use `is_async` instead",
+                DeprecationWarning,
+            )
 
         # override class attribute job_class if one was passed
         if job_class is not None:
@@ -106,7 +126,7 @@ class Queue(object):
     @property
     def registry_cleaning_key(self):
         """Redis key used to indicate this queue has been cleaned."""
-        return 'rq:clean_registries:%s' % self.name
+        return "rq:clean_registries:%s" % self.name
 
     def acquire_cleaning_lock(self):
         """Returns a boolean indicating whether a lock to clean this queue
@@ -132,7 +152,11 @@ class Queue(object):
                 count = count + 1
             end
             return count
-        """.format(self.job_class.redis_job_namespace_prefix).encode("utf-8")
+        """.format(
+            self.job_class.redis_job_namespace_prefix
+        ).encode(
+            "utf-8"
+        )
         script = self.connection.register_script(script)
         return script(keys=[self.key])
 
@@ -192,8 +216,9 @@ class Queue(object):
             end = offset + (length - 1)
         else:
             end = length
-        return [as_text(job_id) for job_id in
-                self.connection.lrange(self.key, start, end)]
+        return [
+            as_text(job_id) for job_id in self.connection.lrange(self.key, start, end)
+        ]
 
     def get_jobs(self, offset=0, length=-1):
         """Returns a slice of jobs in the queue."""
@@ -219,30 +244,35 @@ class Queue(object):
     def failed_job_registry(self):
         """Returns this queue's FailedJobRegistry."""
         from rq.registry import FailedJobRegistry
+
         return FailedJobRegistry(queue=self, job_class=self.job_class)
 
     @property
     def started_job_registry(self):
         """Returns this queue's StartedJobRegistry."""
         from rq.registry import StartedJobRegistry
+
         return StartedJobRegistry(queue=self, job_class=self.job_class)
 
     @property
     def finished_job_registry(self):
         """Returns this queue's FinishedJobRegistry."""
         from rq.registry import FinishedJobRegistry
+
         return FinishedJobRegistry(queue=self)
 
     @property
     def deferred_job_registry(self):
         """Returns this queue's DeferredJobRegistry."""
         from rq.registry import DeferredJobRegistry
+
         return DeferredJobRegistry(queue=self, job_class=self.job_class)
 
     @property
     def scheduled_job_registry(self):
         """Returns this queue's ScheduledJobRegistry."""
         from rq.registry import ScheduledJobRegistry
+
         return ScheduledJobRegistry(queue=self, job_class=self.job_class)
 
     def remove(self, job_or_id, pipeline=None):
@@ -259,8 +289,9 @@ class Queue(object):
         """Removes all "dead" jobs from the queue by cycling through it, while
         guaranteeing FIFO semantics.
         """
-        COMPACT_QUEUE = '{0}_compact:{1}'.format(
-            self.redis_queue_namespace_prefix, uuid.uuid4())  # noqa
+        COMPACT_QUEUE = "{0}_compact:{1}".format(
+            self.redis_queue_namespace_prefix, uuid.uuid4()
+        )  # noqa
 
         self.connection.rename(self.key, COMPACT_QUEUE)
         while True:
@@ -279,39 +310,71 @@ class Queue(object):
         else:
             connection.rpush(self.key, job_id)
 
-    def create_job(self, func, args=None, kwargs=None, timeout=None,
-                   result_ttl=None, ttl=None, failure_ttl=None,
-                   description=None, depends_on=None, job_id=None,
-                   meta=None, status=JobStatus.QUEUED):
+    def create_job(
+        self,
+        func,
+        args=None,
+        kwargs=None,
+        timeout=None,
+        result_ttl=None,
+        ttl=None,
+        failure_ttl=None,
+        description=None,
+        depends_on=None,
+        job_id=None,
+        meta=None,
+        status=JobStatus.QUEUED,
+    ):
         """Creates a job based on parameters given."""
         timeout = parse_timeout(timeout)
 
         if timeout is None:
             timeout = self._default_timeout
         elif timeout == 0:
-            raise ValueError('0 timeout is not allowed. Use -1 for infinite timeout')
+            raise ValueError("0 timeout is not allowed. Use -1 for infinite timeout")
 
         result_ttl = parse_timeout(result_ttl)
         failure_ttl = parse_timeout(failure_ttl)
 
         ttl = parse_timeout(ttl)
         if ttl is not None and ttl <= 0:
-            raise ValueError('Job ttl must be greater than 0')
+            raise ValueError("Job ttl must be greater than 0")
 
         job = self.job_class.create(
-            func, args=args, kwargs=kwargs, connection=self.connection,
-            result_ttl=result_ttl, ttl=ttl, failure_ttl=failure_ttl,
-            status=status, description=description,
-            depends_on=depends_on, timeout=timeout, id=job_id,
-            origin=self.name, meta=meta, serializer=self.serializer
+            func,
+            args=args,
+            kwargs=kwargs,
+            connection=self.connection,
+            result_ttl=result_ttl,
+            ttl=ttl,
+            failure_ttl=failure_ttl,
+            status=status,
+            description=description,
+            depends_on=depends_on,
+            timeout=timeout,
+            id=job_id,
+            origin=self.name,
+            meta=meta,
+            serializer=self.serializer,
         )
 
         return job
 
-    def enqueue_call(self, func, args=None, kwargs=None, timeout=None,
-                     result_ttl=None, ttl=None, failure_ttl=None,
-                     description=None, depends_on=None, job_id=None,
-                     at_front=False, meta=None):
+    def enqueue_call(
+        self,
+        func,
+        args=None,
+        kwargs=None,
+        timeout=None,
+        result_ttl=None,
+        ttl=None,
+        failure_ttl=None,
+        description=None,
+        depends_on=None,
+        job_id=None,
+        at_front=False,
+        meta=None,
+    ):
         """Creates a job to represent the delayed function call and enqueues
         it.
 nd
@@ -321,9 +384,18 @@ nd
         """
 
         job = self.create_job(
-            func, args=args, kwargs=kwargs, result_ttl=result_ttl, ttl=ttl,
-            failure_ttl=failure_ttl, description=description, depends_on=depends_on,
-            job_id=job_id, meta=meta, status=JobStatus.QUEUED, timeout=timeout,
+            func,
+            args=args,
+            kwargs=kwargs,
+            result_ttl=result_ttl,
+            ttl=ttl,
+            failure_ttl=failure_ttl,
+            description=description,
+            depends_on=depends_on,
+            job_id=job_id,
+            meta=meta,
+            status=JobStatus.QUEUED,
+            timeout=timeout,
         )
 
         # If a _dependent_ job depends on any unfinished job, register all the
@@ -340,15 +412,15 @@ nd
 
                         pipe.watch(job.dependencies_key)
 
-                        dependencies = job.fetch_dependencies(
-                            watch=True,
-                            pipeline=pipe
-                        )
+                        dependencies = job.fetch_dependencies(watch=True, pipeline=pipe)
 
                         pipe.multi()
 
                         for dependency in dependencies:
-                            if dependency.get_status(refresh=False) != JobStatus.FINISHED:
+                            if (
+                                dependency.get_status(refresh=False)
+                                != JobStatus.FINISHED
+                            ):
                                 job.set_status(JobStatus.DEFERRED, pipeline=pipe)
                                 job.register_dependency(pipeline=pipe)
                                 job.save(pipeline=pipe)
@@ -382,53 +454,110 @@ nd
         * A string, representing the location of a function (must be
           meaningful to the import context of the workers)
         """
-        if not isinstance(f, string_types) and f.__module__ == '__main__':
-            raise ValueError('Functions from the __main__ module cannot be processed '
-                             'by workers')
+        if not isinstance(f, string_types) and f.__module__ == "__main__":
+            raise ValueError(
+                "Functions from the __main__ module cannot be processed " "by workers"
+            )
 
         # Detect explicit invocations, i.e. of the form:
         #     q.enqueue(foo, args=(1, 2), kwargs={'a': 1}, job_timeout=30)
-        timeout = kwargs.pop('job_timeout', None)
-        description = kwargs.pop('description', None)
-        result_ttl = kwargs.pop('result_ttl', None)
-        ttl = kwargs.pop('ttl', None)
-        failure_ttl = kwargs.pop('failure_ttl', None)
-        depends_on = kwargs.pop('depends_on', None)
-        job_id = kwargs.pop('job_id', None)
-        at_front = kwargs.pop('at_front', False)
-        meta = kwargs.pop('meta', None)
+        timeout = kwargs.pop("job_timeout", None)
+        description = kwargs.pop("description", None)
+        result_ttl = kwargs.pop("result_ttl", None)
+        ttl = kwargs.pop("ttl", None)
+        failure_ttl = kwargs.pop("failure_ttl", None)
+        depends_on = kwargs.pop("depends_on", None)
+        job_id = kwargs.pop("job_id", None)
+        at_front = kwargs.pop("at_front", False)
+        meta = kwargs.pop("meta", None)
 
-        if 'args' in kwargs or 'kwargs' in kwargs:
-            assert args == (), 'Extra positional arguments cannot be used when using explicit args and kwargs'  # noqa
-            args = kwargs.pop('args', None)
-            kwargs = kwargs.pop('kwargs', None)
+        if "args" in kwargs or "kwargs" in kwargs:
+            assert (
+                args == ()
+            ), "Extra positional arguments cannot be used when using explicit args and kwargs"  # noqa
+            args = kwargs.pop("args", None)
+            kwargs = kwargs.pop("kwargs", None)
 
-        return (f, timeout, description, result_ttl, ttl, failure_ttl,
-                depends_on, job_id, at_front, meta, args, kwargs)
+        return (
+            f,
+            timeout,
+            description,
+            result_ttl,
+            ttl,
+            failure_ttl,
+            depends_on,
+            job_id,
+            at_front,
+            meta,
+            args,
+            kwargs,
+        )
 
     def enqueue(self, f, *args, **kwargs):
         """Creates a job to represent the delayed function call and enqueues it."""
 
-        (f, timeout, description, result_ttl, ttl, failure_ttl,
-         depends_on, job_id, at_front, meta, args, kwargs) = Queue.parse_args(f, *args, **kwargs)
+        (
+            f,
+            timeout,
+            description,
+            result_ttl,
+            ttl,
+            failure_ttl,
+            depends_on,
+            job_id,
+            at_front,
+            meta,
+            args,
+            kwargs,
+        ) = Queue.parse_args(f, *args, **kwargs)
 
         return self.enqueue_call(
-            func=f, args=args, kwargs=kwargs, timeout=timeout,
-            result_ttl=result_ttl, ttl=ttl, failure_ttl=failure_ttl,
-            description=description, depends_on=depends_on, job_id=job_id,
-            at_front=at_front, meta=meta
+            func=f,
+            args=args,
+            kwargs=kwargs,
+            timeout=timeout,
+            result_ttl=result_ttl,
+            ttl=ttl,
+            failure_ttl=failure_ttl,
+            description=description,
+            depends_on=depends_on,
+            job_id=job_id,
+            at_front=at_front,
+            meta=meta,
         )
 
     def enqueue_at(self, datetime, f, *args, **kwargs):
         """Schedules a job to be enqueued at specified time"""
         from .registry import ScheduledJobRegistry
 
-        (f, timeout, description, result_ttl, ttl, failure_ttl,
-         depends_on, job_id, at_front, meta, args, kwargs) = Queue.parse_args(f, *args, **kwargs)
-        job = self.create_job(f, status=JobStatus.SCHEDULED, args=args, kwargs=kwargs,
-                              timeout=timeout, result_ttl=result_ttl, ttl=ttl,
-                              failure_ttl=failure_ttl, description=description,
-                              depends_on=depends_on, job_id=job_id, meta=meta)
+        (
+            f,
+            timeout,
+            description,
+            result_ttl,
+            ttl,
+            failure_ttl,
+            depends_on,
+            job_id,
+            at_front,
+            meta,
+            args,
+            kwargs,
+        ) = Queue.parse_args(f, *args, **kwargs)
+        job = self.create_job(
+            f,
+            status=JobStatus.SCHEDULED,
+            args=args,
+            kwargs=kwargs,
+            timeout=timeout,
+            result_ttl=result_ttl,
+            ttl=ttl,
+            failure_ttl=failure_ttl,
+            description=description,
+            depends_on=depends_on,
+            job_id=job_id,
+            meta=meta,
+        )
 
         registry = ScheduledJobRegistry(queue=self)
         with self.connection.pipeline() as pipeline:
@@ -442,8 +571,7 @@ nd
 
     def enqueue_in(self, time_delta, func, *args, **kwargs):
         """Schedules a job to be executed in a given `timedelta` object"""
-        return self.enqueue_at(datetime.now(utc) + time_delta,
-                               func, *args, **kwargs)
+        return self.enqueue_at(datetime.now(utc) + time_delta, func, *args, **kwargs)
 
     def enqueue_job(self, job, pipeline=None, at_front=False):
         """Enqueues a job for delayed execution.
@@ -494,31 +622,33 @@ nd
                 if pipeline is None:
                     pipe.watch(dependents_key)
 
-                dependent_job_ids = [as_text(_id)
-                                     for _id in pipe.smembers(dependents_key)]
+                dependent_job_ids = [
+                    as_text(_id) for _id in pipe.smembers(dependents_key)
+                ]
 
                 jobs_to_enqueue = [
-                    dependent_job for dependent_job
-                    in self.job_class.fetch_many(
-                        dependent_job_ids,
-                        connection=self.connection
-                    ) if dependent_job.dependencies_are_met(
-                        exclude_job_id=job.id,
-                        pipeline=pipe
+                    dependent_job
+                    for dependent_job in self.job_class.fetch_many(
+                        dependent_job_ids, connection=self.connection
+                    )
+                    if dependent_job.dependencies_are_met(
+                        exclude_job_id=job.id, pipeline=pipe
                     )
                 ]
 
                 pipe.multi()
 
                 for dependent in jobs_to_enqueue:
-                    registry = DeferredJobRegistry(dependent.origin,
-                                                   self.connection,
-                                                   job_class=self.job_class)
+                    registry = DeferredJobRegistry(
+                        dependent.origin, self.connection, job_class=self.job_class
+                    )
                     registry.remove(dependent, pipeline=pipe)
                     if dependent.origin == self.name:
                         self.enqueue_job(dependent, pipeline=pipe)
                     else:
-                        queue = self.__class__(name=dependent.origin, connection=self.connection)
+                        queue = self.__class__(
+                            name=dependent.origin, connection=self.connection
+                        )
                         queue.enqueue_job(dependent, pipeline=pipe)
 
                 pipe.delete(dependents_key)
@@ -557,7 +687,9 @@ nd
         connection = resolve_connection(connection)
         if timeout is not None:  # blocking variant
             if timeout == 0:
-                raise ValueError('RQ does not support indefinite timeouts. Please pick a timeout value > 0')
+                raise ValueError(
+                    "RQ does not support indefinite timeouts. Please pick a timeout value > 0"
+                )
             result = connection.blpop(queue_keys, timeout)
             if result is None:
                 raise DequeueTimeout(timeout, queue_keys)
@@ -582,7 +714,7 @@ nd
 
         See the documentation of cls.lpop for the interpretation of timeout.
         """
-        job_class = backend_class(cls, 'job_class', override=job_class)
+        job_class = backend_class(cls, "job_class", override=job_class)
 
         while True:
             queue_keys = [q.key for q in queues]
@@ -590,9 +722,9 @@ nd
             if result is None:
                 return None
             queue_key, job_id = map(as_text, result)
-            queue = cls.from_queue_key(queue_key,
-                                       connection=connection,
-                                       job_class=job_class)
+            queue = cls.from_queue_key(
+                queue_key, connection=connection, job_class=job_class
+            )
             try:
                 job = job_class.fetch(job_id, connection=connection)
             except NoSuchJobError:
@@ -612,19 +744,19 @@ nd
     # auto-generated by the @total_ordering decorator)
     def __eq__(self, other):  # noqa
         if not isinstance(other, Queue):
-            raise TypeError('Cannot compare queues to other objects')
+            raise TypeError("Cannot compare queues to other objects")
         return self.name == other.name
 
     def __lt__(self, other):
         if not isinstance(other, Queue):
-            raise TypeError('Cannot compare queues to other objects')
+            raise TypeError("Cannot compare queues to other objects")
         return self.name < other.name
 
     def __hash__(self):  # pragma: no cover
         return hash(self.name)
 
     def __repr__(self):  # noqa  # pragma: no cover
-        return '{0}({1!r})'.format(self.__class__.__name__, self.name)
+        return "{0}({1!r})".format(self.__class__.__name__, self.name)
 
     def __str__(self):
-        return '<{0} {1}>'.format(self.__class__.__name__, self.name)
+        return "<{0} {1}>".format(self.__class__.__name__, self.name)

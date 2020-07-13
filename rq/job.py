@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-from __future__ import (absolute_import, division, print_function,
-                        unicode_literals)
+from __future__ import absolute_import, division, print_function, unicode_literals
 
 import inspect
 import pickle
@@ -16,8 +15,7 @@ from .connections import resolve_connection
 from .exceptions import NoSuchJobError
 from .local import LocalStack
 from .serializers import resolve_serializer
-from .utils import (enum, import_attribute, parse_timeout, str_to_date,
-                    utcformat, utcnow)
+from .utils import enum, import_attribute, parse_timeout, str_to_date, utcformat, utcnow
 
 # Serialize pickle dumps using the highest pickle protocol (binary, default
 # uses ascii)
@@ -25,13 +23,13 @@ dumps = partial(pickle.dumps, protocol=pickle.HIGHEST_PROTOCOL)
 loads = pickle.loads
 
 JobStatus = enum(
-    'JobStatus',
-    QUEUED='queued',
-    FINISHED='finished',
-    FAILED='failed',
-    STARTED='started',
-    DEFERRED='deferred',
-    SCHEDULED='scheduled',
+    "JobStatus",
+    QUEUED="queued",
+    FINISHED="finished",
+    FAILED="failed",
+    STARTED="started",
+    DEFERRED="deferred",
+    SCHEDULED="scheduled",
 )
 
 # Sentinel value to mark that some of our lazily evaluated properties have not
@@ -42,8 +40,9 @@ UNEVALUATED = object()
 def truncate_long_string(data, maxlen=75):
     """ Truncates strings longer than maxlen
     """
-    return (data[:maxlen] + '...') if len(data) > maxlen else data
-	
+    return (data[:maxlen] + "...") if len(data) > maxlen else data
+
+
 def cancel_job(job_id, connection=None):
     """Cancels the job with the given job ID, preventing execution.  Discards
     any job info (i.e. it can't be requeued later).
@@ -56,8 +55,9 @@ def get_current_job(connection=None, job_class=None):
     function is invoked from outside a job context, None is returned.
     """
     if job_class:
-        warnings.warn("job_class argument for get_current_job is deprecated.",
-                      DeprecationWarning)
+        warnings.warn(
+            "job_class argument for get_current_job is deprecated.", DeprecationWarning
+        )
     return _job_stack.top
 
 
@@ -69,14 +69,29 @@ def requeue_job(job_id, connection):
 class Job(object):
     """A Job is just a convenient datastructure to pass around job (meta) data.
     """
-    redis_job_namespace_prefix = 'rq:job:'
+
+    redis_job_namespace_prefix = "rq:job:"
 
     # Job construction
     @classmethod
-    def create(cls, func, args=None, kwargs=None, connection=None,
-               result_ttl=None, ttl=None, status=None, description=None,
-               depends_on=None, timeout=None, id=None, origin=None, meta=None,
-               failure_ttl=None, serializer=None):
+    def create(
+        cls,
+        func,
+        args=None,
+        kwargs=None,
+        connection=None,
+        result_ttl=None,
+        ttl=None,
+        status=None,
+        description=None,
+        depends_on=None,
+        timeout=None,
+        id=None,
+        origin=None,
+        meta=None,
+        failure_ttl=None,
+        serializer=None,
+    ):
         """Creates a new Job instance for the given function, arguments, and
         keyword arguments.
         """
@@ -86,9 +101,9 @@ class Job(object):
             kwargs = {}
 
         if not isinstance(args, (tuple, list)):
-            raise TypeError('{0!r} is not a valid args list'.format(args))
+            raise TypeError("{0!r} is not a valid args list".format(args))
         if not isinstance(kwargs, dict):
-            raise TypeError('{0!r} is not a valid kwargs dict'.format(kwargs))
+            raise TypeError("{0!r} is not a valid kwargs dict".format(kwargs))
 
         job = cls(connection=connection, serializer=serializer)
         if id is not None:
@@ -103,14 +118,18 @@ class Job(object):
             job._instance = func.__self__
             job._func_name = func.__name__
         elif inspect.isfunction(func) or inspect.isbuiltin(func):
-            job._func_name = '{0}.{1}'.format(func.__module__, func.__name__)
+            job._func_name = "{0}.{1}".format(func.__module__, func.__name__)
         elif isinstance(func, string_types):
             job._func_name = as_text(func)
-        elif not inspect.isclass(func) and hasattr(func, '__call__'):  # a callable class instance
+        elif not inspect.isclass(func) and hasattr(
+            func, "__call__"
+        ):  # a callable class instance
             job._instance = func
-            job._func_name = '__call__'
+            job._func_name = "__call__"
         else:
-            raise TypeError('Expected a callable or a string, but got: {0}'.format(func))
+            raise TypeError(
+                "Expected a callable or a string, but got: {0}".format(func)
+            )
         job._args = args
         job._kwargs = kwargs
 
@@ -125,11 +144,14 @@ class Job(object):
 
         # dependency could be job instance or id
         if depends_on is not None:
-            job._dependency_ids = [depends_on.id if isinstance(depends_on, Job) else depends_on]
+            job._dependency_ids = [
+                depends_on.id if isinstance(depends_on, Job) else depends_on
+            ]
         return job
 
     def get_position(self):
         from .queue import Queue
+
         if self.origin:
             q = Queue(name=self.origin, connection=self.connection)
             return q.get_job_position(self._id)
@@ -137,14 +159,14 @@ class Job(object):
 
     def get_status(self, refresh=True):
         if refresh:
-            self._status = as_text(self.connection.hget(self.key, 'status'))
+            self._status = as_text(self.connection.hget(self.key, "status"))
 
         return self._status
 
     def set_status(self, status, pipeline=None):
         self._status = status
         connection = pipeline if pipeline is not None else self.connection
-        connection.hset(self.key, 'status', self._status)
+        connection.hset(self.key, "status", self._status)
 
     @property
     def is_finished(self):
@@ -185,7 +207,7 @@ class Job(object):
         """
         if not self._dependency_ids:
             return None
-        if hasattr(self, '_dependency'):
+        if hasattr(self, "_dependency"):
             return self._dependency
         job = self.fetch(self._dependency_ids[0], connection=self.connection)
         self._dependency = job
@@ -209,13 +231,18 @@ class Job(object):
         return import_attribute(self.func_name)
 
     def _deserialize_data(self):
-        self._func_name, self._instance, self._args, self._kwargs = self.serializer.loads(self.data)
+        (
+            self._func_name,
+            self._instance,
+            self._args,
+            self._kwargs,
+        ) = self.serializer.loads(self.data)
 
     @property
     def data(self):
         if self._data is UNEVALUATED:
             if self._func_name is UNEVALUATED:
-                raise ValueError('Cannot build the job data')
+                raise ValueError("Cannot build the job data")
 
             if self._instance is UNEVALUATED:
                 self._instance = None
@@ -348,14 +375,14 @@ class Job(object):
         self.redis_server_version = None
 
     def __repr__(self):  # noqa  # pragma: no cover
-        return '{0}({1!r}, enqueued_at={2!r})'.format(self.__class__.__name__,
-                                                      self._id,
-                                                      self.enqueued_at)
+        return "{0}({1!r}, enqueued_at={2!r})".format(
+            self.__class__.__name__, self._id, self.enqueued_at
+        )
 
     def __str__(self):
-        return '<{0} {1}: {2}>'.format(self.__class__.__name__,
-                                       self.id,
-                                       self.description)
+        return "<{0} {1}: {2}>".format(
+            self.__class__.__name__, self.id, self.description
+        )
 
     # Job equality
     def __eq__(self, other):  # noqa
@@ -376,7 +403,7 @@ class Job(object):
     def set_id(self, value):
         """Sets a job ID for the given job."""
         if not isinstance(value, string_types):
-            raise TypeError('id must be a string, not {0}'.format(type(value)))
+            raise TypeError("id must be a string, not {0}".format(type(value)))
         self._id = value
 
     id = property(get_id, set_id)
@@ -384,12 +411,12 @@ class Job(object):
     @classmethod
     def key_for(cls, job_id):
         """The Redis key that is used to store job hash under."""
-        return (cls.redis_job_namespace_prefix + job_id).encode('utf-8')
+        return (cls.redis_job_namespace_prefix + job_id).encode("utf-8")
 
     @classmethod
     def dependents_key_for(cls, job_id):
         """The Redis key that is used to store job dependents hash under."""
-        return '{0}{1}:dependents'.format(cls.redis_job_namespace_prefix, job_id)
+        return "{0}{1}:dependents".format(cls.redis_job_namespace_prefix, job_id)
 
     @property
     def key(self):
@@ -403,7 +430,7 @@ class Job(object):
 
     @property
     def dependencies_key(self):
-        return '{0}:{1}:dependencies'.format(self.redis_job_namespace_prefix, self.id)
+        return "{0}:{1}:dependencies".format(self.redis_job_namespace_prefix, self.id)
 
     def fetch_dependencies(self, watch=False, pipeline=None):
         """
@@ -419,9 +446,11 @@ class Job(object):
         if watch and self._dependency_ids:
             connection.watch(*self._dependency_ids)
 
-        jobs = [job
-                for job in self.fetch_many(self._dependency_ids, connection=self.connection)
-                if job]
+        jobs = [
+            job
+            for job in self.fetch_many(self._dependency_ids, connection=self.connection)
+            if job
+        ]
 
         return jobs
 
@@ -443,7 +472,7 @@ class Job(object):
         seconds by default).
         """
         if self._result is None:
-            rv = self.connection.hget(self.key, 'result')
+            rv = self.connection.hget(self.key, "result")
             if rv is not None:
                 # cache the result
                 self._result = self.serializer.loads(rv)
@@ -456,9 +485,9 @@ class Job(object):
         """Overwrite properties with the provided values stored in Redis"""
         obj = decode_redis_hash(raw_data)
         try:
-            raw_data = obj['data']
+            raw_data = obj["data"]
         except KeyError:
-            raise NoSuchJobError('Unexpected job format: {0}'.format(obj))
+            raise NoSuchJobError("Unexpected job format: {0}".format(obj))
 
         try:
             self.data = zlib.decompress(raw_data)
@@ -466,30 +495,34 @@ class Job(object):
             # Fallback to uncompressed string
             self.data = raw_data
 
-        self.created_at = str_to_date(obj.get('created_at'))
-        self.origin = as_text(obj.get('origin'))
-        self.description = as_text(obj.get('description'))
-        self.enqueued_at = str_to_date(obj.get('enqueued_at'))
-        self.started_at = str_to_date(obj.get('started_at'))
-        self.ended_at = str_to_date(obj.get('ended_at'))
-        result = obj.get('result')
+        self.created_at = str_to_date(obj.get("created_at"))
+        self.origin = as_text(obj.get("origin"))
+        self.description = as_text(obj.get("description"))
+        self.enqueued_at = str_to_date(obj.get("enqueued_at"))
+        self.started_at = str_to_date(obj.get("started_at"))
+        self.ended_at = str_to_date(obj.get("ended_at"))
+        result = obj.get("result")
         if result:
             try:
-                self._result = self.serializer.loads(obj.get('result'))
+                self._result = self.serializer.loads(obj.get("result"))
             except Exception as e:
                 self._result = "Unserializable return value"
-        self.timeout = parse_timeout(obj.get('timeout')) if obj.get('timeout') else None
-        self.result_ttl = int(obj.get('result_ttl')) if obj.get('result_ttl') else None  # noqa
-        self.failure_ttl = int(obj.get('failure_ttl')) if obj.get('failure_ttl') else None  # noqa
-        self._status = as_text(obj.get('status')) if obj.get('status') else None
+        self.timeout = parse_timeout(obj.get("timeout")) if obj.get("timeout") else None
+        self.result_ttl = (
+            int(obj.get("result_ttl")) if obj.get("result_ttl") else None
+        )  # noqa
+        self.failure_ttl = (
+            int(obj.get("failure_ttl")) if obj.get("failure_ttl") else None
+        )  # noqa
+        self._status = as_text(obj.get("status")) if obj.get("status") else None
 
-        dependency_id = obj.get('dependency_id', None)
+        dependency_id = obj.get("dependency_id", None)
         self._dependency_ids = [as_text(dependency_id)] if dependency_id else []
 
-        self.ttl = int(obj.get('ttl')) if obj.get('ttl') else None
-        self.meta = self.serializer.loads(obj.get('meta')) if obj.get('meta') else {}
+        self.ttl = int(obj.get("ttl")) if obj.get("ttl") else None
+        self.meta = self.serializer.loads(obj.get("meta")) if obj.get("meta") else {}
 
-        raw_exc_info = obj.get('exc_info')
+        raw_exc_info = obj.get("exc_info")
         if raw_exc_info:
             try:
                 self.exc_info = as_text(zlib.decompress(raw_exc_info))
@@ -506,7 +539,7 @@ class Job(object):
         """
         data = self.connection.hgetall(self.key)
         if not data:
-            raise NoSuchJobError('No such job: {0}'.format(self.key))
+            raise NoSuchJobError("No such job: {0}".format(self.key))
         self.restore(data)
 
     def to_dict(self, include_meta=True):
@@ -517,39 +550,39 @@ class Job(object):
         `include_meta=False`.
         """
         obj = {}
-        obj['created_at'] = utcformat(self.created_at or utcnow())
-        obj['data'] = zlib.compress(self.data)
+        obj["created_at"] = utcformat(self.created_at or utcnow())
+        obj["data"] = zlib.compress(self.data)
 
         if self.origin is not None:
-            obj['origin'] = self.origin
+            obj["origin"] = self.origin
         if self.description is not None:
-            obj['description'] = self.description
+            obj["description"] = self.description
         if self.enqueued_at is not None:
-            obj['enqueued_at'] = utcformat(self.enqueued_at)
+            obj["enqueued_at"] = utcformat(self.enqueued_at)
 
-        obj['started_at'] = utcformat(self.started_at) if self.started_at else ''
-        obj['ended_at'] = utcformat(self.ended_at) if self.ended_at else ''
+        obj["started_at"] = utcformat(self.started_at) if self.started_at else ""
+        obj["ended_at"] = utcformat(self.ended_at) if self.ended_at else ""
         if self._result is not None:
             try:
-                obj['result'] = self.serializer.dumps(self._result)
+                obj["result"] = self.serializer.dumps(self._result)
             except Exception as e:
-                obj['result'] = "Unserializable return value"
+                obj["result"] = "Unserializable return value"
         if self.exc_info is not None:
-            obj['exc_info'] = zlib.compress(str(self.exc_info).encode('utf-8'))
+            obj["exc_info"] = zlib.compress(str(self.exc_info).encode("utf-8"))
         if self.timeout is not None:
-            obj['timeout'] = self.timeout
+            obj["timeout"] = self.timeout
         if self.result_ttl is not None:
-            obj['result_ttl'] = self.result_ttl
+            obj["result_ttl"] = self.result_ttl
         if self.failure_ttl is not None:
-            obj['failure_ttl'] = self.failure_ttl
+            obj["failure_ttl"] = self.failure_ttl
         if self._status is not None:
-            obj['status'] = self._status
+            obj["status"] = self._status
         if self._dependency_ids:
-            obj['dependency_id'] = self._dependency_ids[0]
+            obj["dependency_id"] = self._dependency_ids[0]
         if self.meta and include_meta:
-            obj['meta'] = self.serializer.dumps(self.meta)
+            obj["meta"] = self.serializer.dumps(self.meta)
         if self.ttl:
-            obj['ttl'] = self.ttl
+            obj["ttl"] = self.ttl
 
         return obj
 
@@ -585,7 +618,7 @@ class Job(object):
     def save_meta(self):
         """Stores job meta from the job instance to the corresponding Redis key."""
         meta = self.serializer.dumps(self.meta)
-        self.connection.hset(self.key, 'meta', meta)
+        self.connection.hset(self.key, "meta", meta)
 
     def cancel(self, pipeline=None):
         """Cancels the given job, which will prevent the job from ever being
@@ -596,6 +629,7 @@ class Job(object):
         cancellation.
         """
         from .queue import Queue
+
         pipeline = pipeline or self.connection.pipeline()
         if self.origin:
             q = Queue(name=self.origin, connection=self.connection)
@@ -606,8 +640,7 @@ class Job(object):
         """Requeues job."""
         return self.failed_job_registry.requeue(self)
 
-    def delete(self, pipeline=None, remove_from_queue=True,
-               delete_dependents=False):
+    def delete(self, pipeline=None, remove_from_queue=True, delete_dependents=False):
         """Cancels the job and deletes the job hash from Redis. Jobs depending
         on this job can optionally be deleted as well."""
         if remove_from_queue:
@@ -616,30 +649,34 @@ class Job(object):
 
         if self.is_finished:
             from .registry import FinishedJobRegistry
-            registry = FinishedJobRegistry(self.origin,
-                                           connection=self.connection,
-                                           job_class=self.__class__)
+
+            registry = FinishedJobRegistry(
+                self.origin, connection=self.connection, job_class=self.__class__
+            )
             registry.remove(self, pipeline=pipeline)
 
         elif self.is_deferred:
             from .registry import DeferredJobRegistry
-            registry = DeferredJobRegistry(self.origin,
-                                           connection=self.connection,
-                                           job_class=self.__class__)
+
+            registry = DeferredJobRegistry(
+                self.origin, connection=self.connection, job_class=self.__class__
+            )
             registry.remove(self, pipeline=pipeline)
 
         elif self.is_started:
             from .registry import StartedJobRegistry
-            registry = StartedJobRegistry(self.origin,
-                                          connection=self.connection,
-                                          job_class=self.__class__)
+
+            registry = StartedJobRegistry(
+                self.origin, connection=self.connection, job_class=self.__class__
+            )
             registry.remove(self, pipeline=pipeline)
 
         elif self.is_scheduled:
             from .registry import ScheduledJobRegistry
-            registry = ScheduledJobRegistry(self.origin,
-                                            connection=self.connection,
-                                            job_class=self.__class__)
+
+            registry = ScheduledJobRegistry(
+                self.origin, connection=self.connection, job_class=self.__class__
+            )
             registry.remove(self, pipeline=pipeline)
 
         elif self.is_failed:
@@ -656,8 +693,7 @@ class Job(object):
         for dependent_id in self.dependent_ids:
             try:
                 job = Job.fetch(dependent_id, connection=self.connection)
-                job.delete(pipeline=pipeline,
-                           remove_from_queue=False)
+                job.delete(pipeline=pipeline, remove_from_queue=False)
             except NoSuchJobError:
                 # It could be that the dependent job was never saved to redis
                 pass
@@ -701,12 +737,15 @@ class Job(object):
 
         arg_list = [as_text(truncate_long_string(repr(arg))) for arg in self.args]
 
-        kwargs = ['{0}={1}'.format(k, as_text(truncate_long_string(repr(v)))) for k, v in self.kwargs.items()]
+        kwargs = [
+            "{0}={1}".format(k, as_text(truncate_long_string(repr(v))))
+            for k, v in self.kwargs.items()
+        ]
         # Sort here because python 3.3 & 3.4 makes different call_string
         arg_list += sorted(kwargs)
-        args = ', '.join(arg_list)
+        args = ", ".join(arg_list)
 
-        return '{0}({1})'.format(self.func_name, args)
+        return "{0}({1})".format(self.func_name, args)
 
     def cleanup(self, ttl=None, pipeline=None, remove_from_queue=True):
         """Prepare job for eventual deletion (if needed). This method is usually
@@ -730,8 +769,10 @@ class Job(object):
     @property
     def failed_job_registry(self):
         from .registry import FailedJobRegistry
-        return FailedJobRegistry(self.origin, connection=self.connection,
-                                 job_class=self.__class__)
+
+        return FailedJobRegistry(
+            self.origin, connection=self.connection, job_class=self.__class__
+        )
 
     def register_dependency(self, pipeline=None):
         """Jobs may have dependencies. Jobs are enqueued only if the job they
@@ -746,9 +787,9 @@ class Job(object):
         """
         from .registry import DeferredJobRegistry
 
-        registry = DeferredJobRegistry(self.origin,
-                                       connection=self.connection,
-                                       job_class=self.__class__)
+        registry = DeferredJobRegistry(
+            self.origin, connection=self.connection, job_class=self.__class__
+        )
         registry.add(self, pipeline=pipeline)
 
         connection = pipeline if pipeline is not None else self.connection
@@ -761,8 +802,7 @@ class Job(object):
     @property
     def dependency_ids(self):
         dependencies = self.connection.smembers(self.dependencies_key)
-        return [Job.key_for(_id.decode())
-                for _id in dependencies]
+        return [Job.key_for(_id.decode()) for _id in dependencies]
 
     def dependencies_are_met(self, exclude_job_id=None, pipeline=None):
         """Returns a boolean indicating if all of this jobs dependencies are _FINISHED_
@@ -780,23 +820,24 @@ class Job(object):
         if pipeline is not None:
             connection.watch(*self.dependency_ids)
 
-        dependencies_ids = {_id.decode()
-                            for _id in connection.smembers(self.dependencies_key)}
+        dependencies_ids = {
+            _id.decode() for _id in connection.smembers(self.dependencies_key)
+        }
 
         if exclude_job_id:
             dependencies_ids.discard(exclude_job_id)
 
         with connection.pipeline() as pipeline:
             for key in dependencies_ids:
-                pipeline.hget(self.key_for(key), 'status')
+                pipeline.hget(self.key_for(key), "status")
 
             dependencies_statuses = pipeline.execute()
 
         return all(
             status.decode() == JobStatus.FINISHED
-            for status
-            in dependencies_statuses
+            for status in dependencies_statuses
             if status
         )
+
 
 _job_stack = LocalStack()

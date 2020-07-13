@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
-from __future__ import (absolute_import, division, print_function,
-                        unicode_literals)
+from __future__ import absolute_import, division, print_function, unicode_literals
 
 import signal
 
 
 class BaseTimeoutException(Exception):
     """Base exception for timeouts."""
+
     pass
 
 
@@ -14,6 +14,7 @@ class JobTimeoutException(BaseTimeoutException):
     """Raised when a job takes longer to complete than the allowed maximum
     timeout value.
     """
+
     pass
 
 
@@ -21,6 +22,7 @@ class HorseMonitorTimeoutException(BaseTimeoutException):
     """Raised when waiting for a horse exiting takes longer than the maximum
     timeout value.
     """
+
     pass
 
 
@@ -58,10 +60,10 @@ class BaseDeathPenalty(object):
 
 
 class UnixSignalDeathPenalty(BaseDeathPenalty):
-
     def handle_death_penalty(self, signum, frame):
-        raise self._exception('Task exceeded maximum timeout value '
-                              '({0} seconds)'.format(self._timeout))
+        raise self._exception(
+            "Task exceeded maximum timeout value " "({0} seconds)".format(self._timeout)
+        )
 
     def setup_death_penalty(self):
         """Sets up an alarm signal and a signal handler that raises

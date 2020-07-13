@@ -5,8 +5,7 @@ Miscellaneous helper functions.
 The formatter for ANSI colored console output is heavily based on Pygments
 terminal colorizing code, originally by Georg Brandl.
 """
-from __future__ import (absolute_import, division, print_function,
-                        unicode_literals)
+from __future__ import absolute_import, division, print_function, unicode_literals
 
 import calendar
 import datetime
@@ -14,6 +13,7 @@ import importlib
 import logging
 import numbers
 import sys
+
 try:
     from collections.abc import Iterable
 except ImportError:
@@ -38,10 +38,26 @@ class _Colorizer(object):
         self.codes["blink"] = esc + "05m"
         self.codes["overline"] = esc + "06m"
 
-        dark_colors = ["black", "darkred", "darkgreen", "brown", "darkblue",
-                       "purple", "teal", "lightgray"]
-        light_colors = ["darkgray", "red", "green", "yellow", "blue",
-                        "fuchsia", "turquoise", "white"]
+        dark_colors = [
+            "black",
+            "darkred",
+            "darkgreen",
+            "brown",
+            "darkblue",
+            "purple",
+            "teal",
+            "lightgray",
+        ]
+        light_colors = [
+            "darkgray",
+            "red",
+            "green",
+            "yellow",
+            "blue",
+            "fuchsia",
+            "turquoise",
+            "white",
+        ]
 
         x = 30
         for d, l in zip(dark_colors, light_colors):
@@ -86,17 +102,19 @@ def make_colorizer(color):
 
         print "It's either " + green('OK') + ' or ' + red('Oops')
     """
+
     def inner(text):
         return colorizer.colorize(color, text)
+
     return inner
 
 
 class ColorizingStreamHandler(logging.StreamHandler):
 
     levels = {
-        logging.WARNING: make_colorizer('darkyellow'),
-        logging.ERROR: make_colorizer('darkred'),
-        logging.CRITICAL: make_colorizer('darkred'),
+        logging.WARNING: make_colorizer("darkyellow"),
+        logging.ERROR: make_colorizer("darkred"),
+        logging.CRITICAL: make_colorizer("darkred"),
     }
 
     def __init__(self, exclude=None, *args, **kwargs):
@@ -105,7 +123,7 @@ class ColorizingStreamHandler(logging.StreamHandler):
 
     @property
     def is_tty(self):
-        isatty = getattr(self.stream, 'isatty', None)
+        isatty = getattr(self.stream, "isatty", None)
         return isatty and isatty()
 
     def format(self, record):
@@ -114,17 +132,19 @@ class ColorizingStreamHandler(logging.StreamHandler):
             colorize = self.levels.get(record.levelno, lambda x: x)
 
             # Don't colorize any traceback
-            parts = message.split('\n', 1)
-            parts[0] = " ".join([parts[0].split(" ", 1)[0], colorize(parts[0].split(" ", 1)[1])])
+            parts = message.split("\n", 1)
+            parts[0] = " ".join(
+                [parts[0].split(" ", 1)[0], colorize(parts[0].split(" ", 1)[1])]
+            )
 
-            message = '\n'.join(parts)
+            message = "\n".join(parts)
 
         return message
 
 
 def import_attribute(name):
     """Return an attribute from a dotted path name (e.g. "path.to.func")."""
-    module_name, attribute = name.rsplit('.', 1)
+    module_name, attribute = name.rsplit(".", 1)
     module = importlib.import_module(module_name)
     return getattr(module, attribute)
 
@@ -133,7 +153,7 @@ def utcnow():
     return datetime.datetime.utcnow()
 
 
-_TIMESTAMP_FORMAT = '%Y-%m-%dT%H:%M:%S.%fZ'
+_TIMESTAMP_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
 
 def utcformat(dt):
@@ -145,7 +165,7 @@ def utcparse(string):
         return datetime.datetime.strptime(string, _TIMESTAMP_FORMAT)
     except ValueError:
         # This catches any jobs remain with old datetime format
-        return datetime.datetime.strptime(string, '%Y-%m-%dT%H:%M:%SZ')
+        return datetime.datetime.strptime(string, "%Y-%m-%dT%H:%M:%SZ")
 
 
 def first(iterable, default=None, key=None):
@@ -239,12 +259,14 @@ def parse_timeout(timeout):
             timeout = int(timeout)
         except ValueError:
             digit, unit = timeout[:-1], (timeout[-1:]).lower()
-            unit_second = {'d': 86400, 'h': 3600, 'm': 60, 's': 1}
+            unit_second = {"d": 86400, "h": 3600, "m": 60, "s": 1}
             try:
                 timeout = int(digit) * unit_second[unit]
             except (ValueError, KeyError):
-                raise TimeoutFormatError('Timeout must be an integer or a string representing an integer, or '
-                                         'a string with format: digits + unit, unit can be "d", "h", "m", "s", '
-                                         'such as "1h", "23m".')
+                raise TimeoutFormatError(
+                    "Timeout must be an integer or a string representing an integer, or "
+                    'a string with format: digits + unit, unit can be "d", "h", "m", "s", '
+                    'such as "1h", "23m".'
+                )
 
     return timeout

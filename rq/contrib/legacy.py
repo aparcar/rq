@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-from __future__ import (absolute_import, division, print_function,
-                        unicode_literals)
+from __future__ import absolute_import, division, print_function, unicode_literals
 
 
 import logging
@@ -26,4 +25,8 @@ def cleanup_ghosts(conn=None):
         if conn.ttl(worker.key) == -1:
             ttl = worker.default_worker_ttl
             conn.expire(worker.key, ttl)
-            logger.info('Marked ghosted worker {0} to expire in {1} seconds.'.format(worker.name, ttl))
+            logger.info(
+                "Marked ghosted worker {0} to expire in {1} seconds.".format(
+                    worker.name, ttl
+                )
+            )
